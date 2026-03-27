@@ -13,7 +13,7 @@
     "help": "bun run src/index.ts -- --help",
     "check": "bun run --check src/index.ts",
     "test": "bun test",
-    "build": "bun build src/index.ts src/cli.ts --outdir dist --target node --format esm",
+    "build": "bun build src/index.ts src/cli.ts --outdir dist --target node --format esm && bun run scripts/fix-cli-entry.ts",
     "bump": "bun run scripts/bump.ts",
     "publish:seed": "pwsh -ExecutionPolicy Bypass -File scripts/seed-publish.ps1 -Version 0.1.0 -Tag latest"
   },
