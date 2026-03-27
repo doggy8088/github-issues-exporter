@@ -1,0 +1,130 @@
+name: auto-release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: github-issues-exporter-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'chore(release): v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Validate
+        run: |
+          bun run check
+
+      - name: Compute next patch version
+        id: version
+        run: |
+          NEXT_VERSION="$(node <<'NODE'
+          const fs = require("node:fs");
+          const {execSync} = require("node:child_process");
+
+          function parseVersion(value) {
+            const raw = String(value || "0.0.0").trim().split(".");
+            return {
+              major: Number.parseInt(raw[0] || "0", 10) || 0,
+              minor: Number.parseInt(raw[1] || "0", 10) || 0,
+              patch: Number.parseInt(raw[2] || "0", 10) || 0,
+            };
+          }
+
+          function isGreaterOrEqual(a, b) {
+            if (a.major !== b.major) return a.major > b.major;
+            if (a.minor !== b.minor) return a.minor > b.minor;
+            return a.patch >= b.patch;
+          }
+
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const local = parseVersion(pkg.version);
+
+          let published;
+          try {
+            const out = execSync("npm view @willh/github-issues-exporter version", {
+              encoding: "utf8",
+              stdio: ["ignore", "pipe", "ignore"],
+            }).trim();
+            published = parseVersion(out);
+          } catch {
+            published = {major: 0, minor: 0, patch: 0};
+          }
+
+          const base = isGreaterOrEqual(published, local) ? published : local;
+          const next = {
+            major: base.major,
+            minor: base.minor,
+            patch: base.patch + 1,
+          };
+          const nextVersion = `${next.major}.${next.minor}.${next.patch}`;
+
+          pkg.version = nextVersion;
+          fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+          process.stdout.write(nextVersion);
+          NODE
+          )
+          echo "VERSION=${NEXT_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version and tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): v${{ steps.version.outputs.VERSION }}"
+          git tag -a "v${{ steps.version.outputs.VERSION }}" -m "Release v${{ steps.version.outputs.VERSION }}"
+          git push
+          git push --tags
+
+      - name: Build distributable
+        run: bun run build
+
+      - name: Create GitHub Release
+        id: github_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v${{ steps.version.outputs.VERSION }}"; then
+            echo "release exists, skip create"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          else
+            gh release create "v${{ steps.version.outputs.VERSION }}" "dist/index.js" \
+              --title "v${{ steps.version.outputs.VERSION }}" \
+              --notes "Release v${{ steps.version.outputs.VERSION }}" \
+              --target main
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm (Trusted Publishing)
+        run: |
+          if [ "${{ steps.github_release.outputs.created }}" != "true" ]; then
+            echo "skip publish because release already exists"
+            exit 0
+          fi
+          npm config set provenance true
+          npm publish --provenance --access public
