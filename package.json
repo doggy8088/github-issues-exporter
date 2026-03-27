@@ -1,7 +1,7 @@
 {
   "name": "@willh/github-issues-exporter",
   "private": false,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Export GitHub issues to JSON via GitHub CLI auth.",
   "type": "module",
   "main": "dist/index.js",
