@@ -18,6 +18,14 @@
     "publish:seed": "pwsh -ExecutionPolicy Bypass -File scripts/seed-publish.ps1 -Version 0.1.0 -Tag latest"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doggy8088/github-issues-exporter.git"
+  },
+  "homepage": "https://github.com/doggy8088/github-issues-exporter",
+  "bugs": {
+    "url": "https://github.com/doggy8088/github-issues-exporter/issues"
+  },
   "files": [
     "dist/index.js",
     "dist/cli.js",
