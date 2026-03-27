@@ -135,10 +135,16 @@ optional arguments:
 
 ### 目錄
 - `--out-dir`（預設為目前目錄）  
-  `/{out-dir}/{github-id}/{repo-name}/{issue-id}.json`
+  - 未指定 `--out-dir`（使用預設值）：
+    `/{out-dir}/{github-id}/{repo-name}/{issue-id}.json`
+  - 有指定 `--out-dir`：
+    `/{out-dir}/{issue-id}.json`
 
 - 附件目錄（每張 issue 一個子目錄）  
-  `/{out-dir}/{github-id}/{repo-name}/{issue-id}/`
+  - 未指定 `--out-dir`（使用預設值）：
+    `/{out-dir}/{github-id}/{repo-name}/{issue-id}/`
+  - 有指定 `--out-dir`：
+    `/{out-dir}/{issue-id}/`
 
 ### 檔名策略
 - 直接以 issue number 命名：`{issue-id}.json`
@@ -178,6 +184,13 @@ bun run src/index.ts \
   --out-dir ./exports \
   --state all \
   --verbose
+```
+
+若 `./exports` 沒有再接 `github-id` 與 `repo` 路徑，輸出示意如下：
+
+```text
+./exports/1.json
+./exports/1/attachment.png
 ```
 
 ---

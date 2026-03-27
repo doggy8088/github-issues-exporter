@@ -43,6 +43,7 @@ export interface CliArgs {
   url: string | null;
   githubId: string;
   outDir: string;
+  outDirExplicit: boolean;
   state: "open" | "closed" | "all";
   pageSize: number;
   maxPages: number;
@@ -99,8 +100,9 @@ export function usage(): string {
   --help                       顯示本說明
 
 輸出:
-  {out-dir}/{github-id}/{repo}/{issue-id}.json
-  附件目錄: {out-dir}/{github-id}/{repo}/{issue-id}/
+  預設：{out-dir}/{github-id}/{repo}/{issue-id}.json
+  指定 --out-dir 時：{out-dir}/{issue-id}.json
+  附件目錄: {out-dir}/{issue-id}/
 `;
 }
 
@@ -110,6 +112,7 @@ export function parseArgs(argv: string[]): CliArgs {
     url: null,
     githubId: "",
     outDir: ".",
+    outDirExplicit: false,
     state: "all",
     pageSize: 100,
     maxPages: 0,
@@ -143,6 +146,7 @@ export function parseArgs(argv: string[]): CliArgs {
     if (arg === "--out-dir") {
       if (i + 1 >= argv.length) throw new Error("--out-dir 需要一個參數");
       args.outDir = argv[i + 1];
+      args.outDirExplicit = true;
       i += 1;
       continue;
     }
@@ -452,6 +456,7 @@ async function processIssue(params: {
   repo: string;
   githubId: string;
   outDir: string;
+  useDefaultRepoPath: boolean;
   token: string;
   includeComments: boolean;
   skipAttachments: boolean;
@@ -466,7 +471,7 @@ async function processIssue(params: {
     throw new Error("Issue 缺少 number");
   }
 
-  const repoDir = path.join(outDir, githubId, repo);
+  const repoDir = params.useDefaultRepoPath ? path.join(outDir, githubId, repo) : outDir;
   fs.mkdirSync(repoDir, {recursive: true});
   const outputFile = path.join(repoDir, `${issueNumber}.json`);
 
@@ -610,6 +615,7 @@ export async function run(argv: string[]): Promise<number> {
 
   const githubId = args.githubId.trim() || login;
   const outDir = path.resolve(args.outDir || ".");
+  const useDefaultRepoPath = !args.outDirExplicit;
   const token = args.noAttachments ? "" : getGhToken();
 
   if (args.dryRun) {
@@ -650,6 +656,7 @@ export async function run(argv: string[]): Promise<number> {
         repo: target.repo,
         githubId,
         outDir,
+        useDefaultRepoPath,
         token,
         includeComments: !args.skipComments,
         skipAttachments: args.noAttachments,
